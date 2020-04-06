@@ -571,7 +571,7 @@ def run_psi_curb65_score(n_clicks,email,contents,filename):
             blobdecoded+="\n"+string
             blob.upload_from_string(blobdecoded)
 
-            return html.Span('Run Completed. Check your mail.',style={'color':'light-blue','font-size':'10px','text-align':'center'})
+            return html.Span('Run Completed. Check your mail.',style={'color':'light-blue','font-size':'12px','text-align':'center'})
         
         else:
             return html.Span('Upload file/email is empty. Please check',style={'color':'light-blue','font-size':'10px','text-align':'center'})
