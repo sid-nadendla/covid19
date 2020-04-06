@@ -1,0 +1,12 @@
+{
+  "type": "service_account",
+  "project_id": "covid19-mst-cphs-lab-273005",
+  "private_key_id": "9306636fef027fc5e45225d00302b7bba245c96b",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEugIBADANBgkqhkiG9w0BAQEFAASCBKQwggSgAgEAAoIBAQCY/KjabozjUaxY\nnD9di2viuhV0xEgnbdp1H9QhUYYlG8/kRBFYNiwXbA5NiMk7VXn6u2cOvzTXea4T\nfsko+0N3oAj7dcYQSkCNQC3DTC6f6M0zNId0bG+Fu8VitXGu3pRgQGcuYO68i9uK\nKfPEbMNaVtgS/A7sXRP7gTgugQwfUUvcHPdrOCRgLTZWzq+nb33qqa0dqD9TVXdu\nphIByWXQki7qBb7gxtV/tzrl9gMcg3ro4JbaIUIWXq378wW3KmBK3tqQ6HQ9kK5m\n6vNx/Ts50ZsNby0M84I0miSRTgsC0hDAY4AnYA1YDPjg3aujeNWQY2aLCbdRoisU\nAV3J9Je/AgMBAAECgf9GEHc3XgDtIVZt9lwihTe/lK4Q9sAh+VhLMYbeZixH0ng/\nZIQW3t/caqO5QSPUTZzA7HvaDVU2bZQuMiD7us8a4zN7jZIx92aY4R24ZBSANPou\nb3P1pinjRrx+oyRdD39HGOJqFkLXCeEITtJsTcx/aIgjwKhdNUopUXe09WuUj5iD\nD/neq7hxnOEidmvHVP1vzZ9Fy0GG8+Y7BCvRGuiw2Vtf7YVBGNwbGLj0BphrPieh\nu3yqnBloHwl9aI2xmqy+3gXLSxLjQMTuDLWrirFFRfzQvjDT+Ca3WJyAuEvYEjzY\nIa+U+Tt0keymciPB3Rbvuc3hvv2Qugoy7lZYuD0CgYEA1WN5NY3hufolotVyo8md\nTC8ms2tThVKRoWrqqml6lYq+acsnv7qWX0M5L5lOtQFCbbNWukXpEAX+wP+2aaxO\nq8uwfL9R6YMO6xP2vNZ5Fwx6fPGqqXeG6KKqGgFpCNcOZ/88/YCiWqgArsUX7M3z\nxpsvHIoNxsqyrY1lEQD7LBMCgYEAt4ltI+fZtCKQxB8ck2NNHWHhWka9Ro6EFmQo\nX7OHtQhn+Zh2/FDuLR9HTMeBsBB3T1LXkGfj/8ByqgGeWhc5Efyq966iZEMoO7A7\nSrsaitGf1zstR7DYHK2Z1YlSFvhvBkwPNcNWjlbml8kOHpNysXLLQ5w86UTJ47I7\nZDmxAyUCgYB12dlghXqsPwY4N1B4Oupf4A6sutLG6EI79xOhiF3GZ3kgbq4GSuOv\nuy3DJxV8DDUG5yw39lJwog7/wnqZRCuy3+0aCIQRxmsf08fKpVz9KMwhY0sRC018\nABKYCD1dP4DaWPHzQ+7myLCP1ZSQGXLQNna/eVOAfgROq6+sw3D09wKBgCpf3UXr\n8rSHQns1X6ibxaMiBSCNsoeGwfJVf4jQ72UZor/atqX8nXDnhtOwQD4BHzq+OqzJ\nf7d9nDuqEgBk2jVP670xoaaaZsCZKKdRWYhxa4EK1aJ2rv64CgtmIADTrPZ8OwrD\npclJQQYMUmk2y8UyZsGeYeXNjvs2HEZAl6DNAoGAX0BCHzgV+9EAoJCfRdbK4qpN\npNUBHY8Mu6op9aiHHuJE2g+pOS/8ru75dXgM6KETGbJnSzI3ZtFz3JxePo51Xta1\nV+/fOdHgPnVFxF7wjmUe46eRSJfNIqHTP3U88UCzKJhniizMcUkeLn13U6/1F9de\npOpgIzw5YpRiZjSEh3M=\n-----END PRIVATE KEY-----\n",
+  "client_email": "mst-cphs-lab@covid19-mst-cphs-lab-273005.iam.gserviceaccount.com",
+  "client_id": "105621448420881069837",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/mst-cphs-lab%40covid19-mst-cphs-lab-273005.iam.gserviceaccount.com"
+}
