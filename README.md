@@ -1,7 +1,8 @@
 # COVID-19 Dashboard
 This repository contains code used to create dashboard for the research work done at CPHS Lab - Missouri University of Science and Technology
+
 -------------------------
-Contributors:
+## Contributors:
 -------------------------
 PI: Dr. Sid Nadendla
 
