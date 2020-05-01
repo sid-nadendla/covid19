@@ -10,6 +10,7 @@ import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output,State
 from plotly import graph_objs as go
 from plotly.graph_objs import *
+import plotly.express as px
 from datetime import datetime as dt
 import datetime as dtd
 import base64
@@ -30,6 +31,35 @@ bucket = storage_client.get_bucket(bucket_name)
 
 #import report generation and classificaton classes
 from psi_and_curb_65_score.FinalResults import FinalResults
+from xrayClassification.xrayClassification import xrayClassification
+
+external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+
+TAB_STYLE = {
+    'borderRight':'none',
+    'borderBottom':'none',
+    'borderTop':'none',
+    'boxShadow': 'none',
+    'background-color': '#d2e3f3',
+    'paddingTop': 0,
+    'paddingBottom': 0,
+    'height': '42px',
+    'color':'#1e1e1e',
+    'display':'table',
+    'text-align':'middle',
+}
+
+SELECTED_STYLE = {
+    # 'boxShadow': 'inset 0px 2px 2px 2px #11111',
+    'boxShadow': '0px -2px 3px #3b3b3b',
+    'borderBottom':'none',
+    'background-color': '#ffffff',
+    'paddingTop': 0,
+    'paddingBottom': 0,
+    'height': '42px',
+    'color':'#1e1e1e',
+    'vertical-align':'middle'
+}
 
 app = dash.Dash(
     __name__, meta_tags=[{"name": "viewport", "content": "width=device-width"}],external_stylesheets=[dbc.themes.BOOTSTRAP]
@@ -42,64 +72,36 @@ mapbox_access_token = "pk.eyJ1IjoicGxvdGx5bWFwYm94IiwiYSI6ImNqdnBvNDMyaTAxYzkzeW
 #initialize dataframe
 today = dt.today()
 file_name = ''
-Confirmed_total,Recovered,Deaths,Active = 0,0,0,0
 # Dictionary of locations
-list_of_locations = {}
-confirmed_cases = {}
-deaths_cases = {}
-recovered_cases = {}
-list_of_countries = {}
-country_mapping = {'US':'United States','Brunei':'Brunei Darussalam','Congo (Brazzaville)':'Congo','Congo (Kinshasa)':'Congo, The Democratic Republic of the','Czechia':'Czech Republic','Holy See':'Holy See (Vatican City State)','Iran':'Iran,Islamic Republic of','South':'Korea, Republic of','Laos':'Lao People\'s Democratic Republic','Libya':'Libyan Arab Jamahiriya','Moldova':'Moldova, Republic of','North Macedonia':'Macedonia','Russia':'Russian Federation','Syria':'Syrian Arab Republic','Taiwan*':'Taiwan','Tanzania':'Tanzania, United Republic of'}
+state_wise_cumulative_df = pd.DataFrame()
+usa_timeline_df = pd.DataFrame()
+
+list_of_states = {}
+
 testing_methodologies = ['X-Ray Classification','CT-Scan Classification','PSI/CURB-65 Score']
 
 def initialize():
-    df_country_codes = pd.read_csv('https://raw.githubusercontent.com/albertyw/avenews/master/old/data/average-latitude-longitude-countries.csv')
-    global list_of_locations,list_of_countries,confirmed_cases,deaths_cases,recovered_cases
-    global  Confirmed_total,Recovered,Deaths,Active
-    flag = False
-    today = dt.today()
-    while(not flag):
-        try:
-            file_name = "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/"+today.__format__('%m-%d-%Y')+".csv"
-            df = pd.read_csv(file_name)
-            flag = True
-        except:
-            today = today - dtd.timedelta(days=1)
-    for index, row in df.iterrows():
-        list_of_locations[row['Combined_Key']] = {'lat':row['Lat'],'lon':row['Long_']}
-        confirmed_cases[row['Combined_Key']] = str(row['Confirmed'])
-        deaths_cases[row['Combined_Key']] = str(row['Deaths'])
-        recovered_cases[row['Combined_Key']] = str(row['Recovered'])
+    global state_wise_cumulative_df,usa_timeline_df,list_of_states     
 
-        country = row['Combined_Key'].split(",")[-1].strip()
-        
-        
-        country = country_mapping[country] if country in country_mapping.keys() else country
+    #df = pd.read_csv("gs://covid19testcase/cases.csv")
+    df = pd.read_csv("gs://covid19mstcphs/cases.csv")
+    state_wise_cumulative_df = df.groupby(['state_name'],as_index=False)['recovered_count','confirmed_count','death_count'].sum()
 
-        country_lat_long = df_country_codes[df_country_codes['Country'] == country]
-        # print(country_lat_long)
-        if not country_lat_long.empty:
-            list_of_countries[country] = {'lat':float(country_lat_long['Latitude']),'lon':float(country_lat_long['Longitude'])}
-        else:
-            list_of_countries[country] = {'lat':row['Lat'],'lon':row['Long_']}
+    df = df.groupby(['confirmed_date','state_name'],as_index=False)['confirmed_count','death_count','recovered_count'].sum()
+    states = pd.unique(df['state_name'])
+    list_of_states = states
+    usa_timeline_df = pd.DataFrame()
 
-    #remove garbage entries
-    keys = list(list_of_locations.keys())
-    keys = keys[:]
-    for i in keys:
-        # print('hello',i)
-        if confirmed_cases[i] == '0' and deaths_cases[i] == '0' and recovered_cases[i] == '0':
-            del confirmed_cases[i]
-            del recovered_cases[i]
-            del deaths_cases[i]
-            del list_of_locations[i]
-
-    #Set Confirmed and active deceased and recovered count for whole world
-    Confirmed_total = df['Confirmed'].sum()
-    Deaths = df['Deaths'].sum()
-    Active = df['Active'].sum()
-    Recovered = df['Recovered'].sum()
-    # print("changed")
+    for state in states:
+        df_new = df[df['state_name']==state]
+        sum=[0,0,0]
+        state_df = pd.DataFrame()
+        for index,row in df_new.iterrows():
+            sum[0]+= row['confirmed_count']
+            sum[1]+= row['death_count']
+            sum[2]+= row['recovered_count']
+            state_df = state_df.append({'confirmed_date':row['confirmed_date'], 'state_name':row['state_name'],'confirmed_count':sum[0],'death_count':sum[1],'recovered_count':sum[2]   },ignore_index=True)
+        usa_timeline_df = usa_timeline_df.append(state_df)
 
 initialize()
 
@@ -115,22 +117,22 @@ def make_item(i):
                         testing_methodologies[i-1],
                         color="primary",
                         id=f"group-{i}-toggle",
-                        style={'width':'150px','background-color':'#a3afa6','border':'#a3afa6','color':'#000000','font-weight':'bold'}
+                        style={'width':'150px','background-color':'rgb(77, 154, 202)','border':'rgb(77, 154, 202)','color':'white','font-weight':'bold'}
                     )
                 )
             ),
             dbc.Collapse(
                 dbc.CardBody(
                     formGenerator(f"{i}")
-                ),style={'background-color':'#262625'},
+                ),style={'background-color':'#FFFFFF'},
                 id=f"collapse-{i}",
             ),
-        ],style={'background-color':'#1e1e1e'}
+        ],style={'background-color':'#ffffff','border':'none'}
     )
 
 def generateDownloadSSLink(i):
     if i == '3':
-        return html.A(children='Download template Spreadsheet',href='/template-spreadsheet-download',id='template_ss_download',style={'font-size':'10px','font-color':'light-blue','text-decoration':'underline','font-family':'cambria'})
+        return html.A(children='Download template Spreadsheet',href='/template-spreadsheet-download',id='template_ss_download',style={'font-size':'10px','font-color':'blue','text-decoration':'underline','font-family':'cambria'})
     else:
         return 
 
@@ -139,17 +141,17 @@ def formGenerator(i):
     text = 'Upload file'
     if i=='3':
         buttonName = 'PSI/CURB-65 Score'
-        text = 'Upload Sheet(*.xls)'
+        text = 'Upload Sheet(*.xlsx)'
     else:
         buttonName = 'Run Classifier'
-        text = 'Upload Image(*.png)'
+        text = 'Upload Image(*.png,*.jpg)'
     button_id = "run-"+i
 
     return dbc.Row([
         dbc.Col([ 
             generateDownloadSSLink(i),     
             dbc.Row([
-                    dbc.Col([html.Span(text)]),
+                    dbc.Col([html.Span(text,style={'font-size':'15px'})]),
                     dbc.Col([
                         dcc.Upload(id=f'upload-{i}',children=
                             html.Div(['Drag&Drop or ',html.A('Select')]),
@@ -159,24 +161,29 @@ def formGenerator(i):
                 ]
             ),
             dbc.Row([
-                    dbc.Col([html.Span('E-mail: ')]),
+                    dbc.Col([html.Span('E-mail: ',style={'font-size':'15px'})]),
                     dbc.Col([dbc.Input(id=f'email-{i}',bs_size = 'md',className = 'mb-3')])
                 ],style={'padding-top':'5px'}
             ),
 
             dbc.Row([
-                    dbc.Col([dbc.Button(buttonName,id=button_id,style={'background-color':'#6b8e23'})])
+                    dbc.Col([dbc.Button(buttonName,id=button_id,style={'background-color':'rgb(20, 97, 168)','border':'rgb(20, 97, 168)','color':'white'})])
             ],style={'padding-top':'5px'}),
 
             dbc.Row([html.Div(id=f'result-{i}')],style={'color':'light-blue','padding-left':'5px','font-family':'cambria','font-size':'10px'})
         ])
     ])
 
+
 app.layout = html.Div([
     dbc.Row([
         html.Span("COVID-19 Dashboard - Research at CPHS Laboratory")
-    ],style={'background-color':'#262625','box-shadow':'0px 2px 3px #3b3b3b','font-family':'cambria','font-size':'30px'},align='center',justify='center'),
+    ],style={'background-color':'rgb(77, 154, 202)','box-shadow':'0px 2px 3px #3b3b3b','font-family':'cambria','font-size':'30px','color':'white'},align='center',justify='center'),
 
+    dbc.Row([
+        dbc.Col([
+            dcc.Tabs([
+                dcc.Tab(label='Home', selected_style=SELECTED_STYLE, style=TAB_STYLE, children=[
     dbc.Row([
         dbc.Col([
             dbc.Row([
@@ -186,16 +193,16 @@ app.layout = html.Div([
                                     id="location-dropdown",
                                     options=[
                                         {"label": i, "value": i}
-                                        for i in list_of_countries
+                                                        for i in list_of_states
                                     ],
-                                    placeholder="Select a location",
+                                                    placeholder="Select State",
                                     style={'height':'33px'}
                                 )
                             ),style={'padding-bottom':'1px','padding-top':'1px'}
                         ),
                         dbc.Row(
                             dbc.Col([
-                                dcc.Graph(id="map-graph",style={'height':'300px','margin-bottom':'10px'}),
+                                                dcc.Graph(id="map-graph",style={'background-color':'black','display':'inherit','height':'300px','margin-bottom':'10px'}),
                                 dcc.Interval(
                                     id = 'map-interval',
                                     interval = 1800*1000,
@@ -204,7 +211,7 @@ app.layout = html.Div([
                             ])
                         )
                     ]
-                    ,style={'box-shadow':'8px 0px 3px #3b3b3b'}#,width = 5
+                                    ,style={'box-shadow':'2px 0px 3px #3b3b3b'}#,width = 5
                 ),
                 dbc.Col([
                         dbc.Row([
@@ -213,14 +220,14 @@ app.layout = html.Div([
                                     dbc.Col(html.H6(id='Country'))
                                 ]),
                                 dbc.Row([
-                                    dbc.Col(html.Span('CONFIRMED',style={'color':'#f5b041'})),
-                                    dbc.Col(html.Span('DEATHS',style={'color':'#cb4335'})),
-                                    dbc.Col(html.Span('RECOVERED',style={'color':'#58d68d'}))#18a141
+                                                    dbc.Col(html.Span('CONFIRMED',style={'color':'rgb(7, 139, 189)','font-weight':'bold'})),
+                                                    dbc.Col(html.Span('DEATHS',style={'color':'#cb4335','font-weight':'bold'})),
+                                                    dbc.Col(html.Span('RECOVERED',style={'color':'rgb(4, 119, 53)','font-weight':'bold'}))#18a141
                                 ]),
                                 dbc.Row([
-                                    dbc.Col(html.H6(id='Confirmed',style={'color':'#f5b041'})),
-                                    dbc.Col(html.H6(id='Deaths',style={'color':'#cb4335'})),
-                                    dbc.Col(html.H6(id='Recovered',style={'color':'#58d68d'}))
+                                                    dbc.Col(html.H6(id='Confirmed',style={'color':'rgb(7, 139, 189)','font-weight':'bold'})),
+                                                    dbc.Col(html.H6(id='Deaths',style={'color':'#cb4335','font-weight':'bold'})),
+                                                    dbc.Col(html.H6(id='Recovered',style={'color':'rgb(4, 119, 53)','font-weight':'bold'}))
                                 ])
                             ],style={'height':'100px'})
                         ]),
@@ -239,221 +246,124 @@ app.layout = html.Div([
             ],style={'column-gap':'3px'}),
             dbc.Row([
                 dbc.Col([
-                    dbc.Row(dbc.Col([html.H5('Spread Modeling and Intervention Recommendations(*)')])),
+                                    dbc.Row(dbc.Col([html.H5('Spread Modeling and Intervention Recommendations')])),
                     # dbc.Row(dbc.Col(html.Span("This part is under constructruction*",style={'color':'red','font-size':'15px','font-family':'arial'}))),
                     dbc.Row(dbc.Col(
                         html.Span(['This secton includes : 1. Identify the best-fit spread model, and estimate the corresponding model parameters using the spread data for different regions',html.Br(),'2. Recommend data-driven and strategic interventions during COVID-19 as a function of time'],style={'font-size':'12px','text-align':'center','color':'grey'})
                     ))
                 ])
-            ],style={'box-shadow':'0px -8px 3px #3b3b3b'}),
-            dbc.Row(html.Footer(html.Div(className='container-fluid text-center',children=[html.Span(['This Dashboard updates for every 30 minutes. Data for this Visual Dashboard has been taken from publicly available dataset maintained by ',html.A('John Hopkins',target='_blank',href='https://github.com/CSSEGISandData/COVID-19',style={'color':'light-blue','font-family':'cambria','font-size':'10px'})],style={'float':'left','color':'grey','font-family':'arial','font-size':'10px'}),
-                                                                                            html.Span(['* represents the corresponding section is incomplete and will be updated periodically.'],style={'float':'left','color':'grey','font-family':'arial','font-size':'10px'})
-             ])),style={'padding-top':'20px'})
-        ],width=9,style={'box-shadow':'8px -8px 3px #3b3b3b'}),
+                            ],style={'box-shadow':'0px -2px 3px #3b3b3b'}),
+                        ],width=9,style={'box-shadow':'2px -2px 3px #3b3b3b'}),
         dbc.Col([
             dbc.Row(
                 dbc.Col([
-                    dbc.Row(dbc.Col([html.H5('COVID-19 Testing(*)')])),
+                                    dbc.Row(dbc.Col([html.H5('COVID-19 Testing')])),
                     dbc.Row(dbc.Col([make_item(1), make_item(2), make_item(3)], className="accordion"))                    
                 ],style={'height':'100%'})
             )#,
             # dbc.Row(dbc.Col(html.H6('Scoring Mechanism - Under Construction')),style={'box-shadow':'0px 0px 0px 0px #000000'})
-        ],style={'box-shadow':'8px -8px 3px #3b3b3b','height':'100%'})
-    ],style={'margin-top':'0px','height':'100%'}),
-],style={"height": "100%",'width':'100%','marginLeft':'10px','text-align':'center'})
+                        ],style={'box-shadow':'2px -2px 3px #3b3b3b','height':'100%'})
+                    ])
+                ]),
+                
+                dcc.Tab(label='Resources', selected_style=SELECTED_STYLE,style=TAB_STYLE, children=[
+                    dbc.ListGroup([
+                        dbc.ListGroupItem(html.Span(['This Dashboard updates for every 30 minutes.'])),
+                        dbc.ListGroupItem(html.Span(['Data Source: We collected data using the API provided by ',html.A('1point3acres.com',target='_blank',href='https://coronavirus.1point3acres.com/',style={'color':'blue','font-family':'cambria'})])),
+                        dbc.ListGroupItem(children = (['X-Ray Classification: We used CNN to predict COVID-19 using X-RAY images',
+                            dbc.ListGroupItem(html.Span(['X-Ray Image dataset has been taken from: ',html.A('Data Source',target='_blank',href='https://github.com/ieee8023/covid-chestxray-dataset',style={'color':'blue','font-family':'cambria'})])),
+                            dbc.ListGroupItem('Observed Accuracy of the prediction model: ~83%'),
+                            dbc.ListGroupItem('As the available training data is limited, we have used GRAD-cam to understand the interpretability of the CNN and the heatmap image for the areas of focus is delivered along with prediction result.')
+                        ])),
+                    ],style={'box-shadow':'2px -2px 3px #3b3b3b','text-align':'left','font-size':'13px'})
+                ]),
+            ])
 
+        ])
+    ])
+])
+
+#Callback functions
 #Callback to set country/world tag
 @app.callback(Output("Country", "children"),[Input("location-dropdown","value")])
 def update_country_cases(selectedLocation):
     if selectedLocation:
         return selectedLocation
     else:
-        return 'World'
+        return 'USA'
 
 #Callback for Confirmed count
 @app.callback(Output("Confirmed", "children"),[Input("location-dropdown","value")])
 def update_confirmed_cases(selectedLocation):
-    # print(selectedLocation)
-    #initialize()
-    # print("confir"+str(Confirmed_total))
-    if selectedLocation:
-        if selectedLocation in country_mapping.values():
-            selectedLocation = list(country_mapping.keys())[list(country_mapping.values()).index(selectedLocation)]
-        country_wise_count = []
-        for key in list(confirmed_cases.keys()):
-            if key.split(",")[-1].strip() == selectedLocation:
-                country_wise_count.append(int(confirmed_cases[key]))
-        return "{:,d}".format(sum(country_wise_count))
+    if(not selectedLocation):
+        return state_wise_cumulative_df['confirmed_count'].sum()
     else:
-        return "{:,d}".format(Confirmed_total)
+        return state_wise_cumulative_df[state_wise_cumulative_df['state_name'] == selectedLocation]['confirmed_count'].sum()
 
 #Callback for Recovered count
 @app.callback(Output("Recovered", "children"),[Input("location-dropdown","value")])
 def update_recovered_cases(selectedLocation):
-    if selectedLocation:
-        if selectedLocation in country_mapping.values():
-            selectedLocation = list(country_mapping.keys())[list(country_mapping.values()).index(selectedLocation)]
-        
-        country_wise_count = []
-        for key in list(recovered_cases.keys()):
-            if key.split(",")[-1].strip() == selectedLocation:
-                country_wise_count.append(int(recovered_cases[key]))
-        return "{:,d}".format(sum(country_wise_count))
+    if(not selectedLocation):
+        return state_wise_cumulative_df['recovered_count'].sum()
     else:
-        return "{:,d}".format(Recovered)
+        return state_wise_cumulative_df[state_wise_cumulative_df['state_name'] == selectedLocation]['recovered_count'].sum()
 
 #Callback for Death count
 @app.callback(Output("Deaths", "children"),[Input("location-dropdown","value")])
 def update_death_cases(selectedLocation):
-    if selectedLocation:
-        if selectedLocation in country_mapping.values():
-            selectedLocation = list(country_mapping.keys())[list(country_mapping.values()).index(selectedLocation)]
-        country_wise_count = []
-        for key in list(deaths_cases.keys()):
-            if key.split(",")[-1].strip() == selectedLocation:
-                country_wise_count.append(int(deaths_cases[key]))
-        return "{:,d}".format(sum(country_wise_count))
+    if(not selectedLocation):
+        return state_wise_cumulative_df['death_count'].sum()
     else:
-        return "{:,d}".format(Deaths)
+        return state_wise_cumulative_df[state_wise_cumulative_df['state_name'] == selectedLocation]['death_count'].sum()
 
-def plotMap(selectedLocation,flag):
-    
-    # print(selectedLocation)
-    zoom = 0.0
-    latInitial = 0.0
-    lonInitial = 0.0
-    bearing = 0
 
-    if selectedLocation and flag:
-        zoom = 2.0
-        bearing = 3
-        latInitial = list_of_countries[selectedLocation]["lat"]
-        lonInitial = list_of_countries[selectedLocation]["lon"]
-    # print(type(latInitial),lonInitial)
-    
-    return go.Figure(
-        data=[
-                Scattermapbox(
-                    lat=[list_of_locations[i]["lat"] for i in list_of_locations],
-                    lon=[list_of_locations[i]["lon"] for i in list_of_locations],
-                    # mode="markers",
-                    hoverinfo="text",
-                    text= [i+": "+"C: "+confirmed_cases[i]+","+"D: "+ deaths_cases[i]+","+"R: "+recovered_cases[i] for i in list_of_locations.keys()],
-                    marker=dict(size=8,showscale=False,color=[int(x) for x in confirmed_cases.values()],colorscale='reds',opacity=.8)#,color_selected='blue'
-                ),
-            ],
-            layout=Layout(
-                autosize=True,
-                hovermode='closest',
-                margin=go.layout.Margin(l=0, r=10, t=0, b=0),
-                showlegend=False,
-                mapbox=dict(
-                    accesstoken=mapbox_access_token,
-                    center=dict(lat=latInitial, lon=lonInitial),  # 40.7272  # -73.991251
-                    style="dark",
-                    bearing=bearing,
-                    zoom=zoom
-                ),
-                updatemenus=[
-                dict(
-                    buttons=(
-                        [
-                            dict(
-                                args=[
-                                    {
-                                        "mapbox.zoom": 2,
-                                        "mapbox.center.lon": "0.0",
-                                        "mapbox.center.lat": "0.0",
-                                        "mapbox.bearing": 0,
-                                        "mapbox.style": "dark",
-                                    }
-                                ],
-                                label="Reset Zoom",
-                                method="relayout",
-                            )
-                        ]
-                     ),
-                    direction="left",
-                    pad={"r": 0, "t": 0, "b": 0, "l": 0},
-                    showactive=False,
-                    type="buttons",
-                    x=0.45,
-                    y=0.02,
-                    xanchor="left",
-                    yanchor="bottom",
-                    bgcolor="#323130",
-                    borderwidth=1,
-                    bordercolor="#6d6d6d",
-                    font=dict(color="#FFFFFF"),
-                )
-            ],
-        ),
-    )
-
+#Callbackfunction to update map
 #Update Map graph based on the location selected
 @app.callback(Output("map-graph", "figure"),[Input('map-interval','n_intervals'),Input("location-dropdown", "value")])
 def update_graph(n,selectedLocation):
-    if n and not selectedLocation:
-        flag = 0
-    else:
-        flag = 1
-    return plotMap(selectedLocation,flag)
+    fig = go.Figure(data=go.Choropleth(
+        locations=state_wise_cumulative_df['state_name'],
+        z=state_wise_cumulative_df['confirmed_count'],
+        locationmode='USA-states',
+        colorscale='blues',
+        autocolorscale=False,
+        text='Confirmed', # hover text
+        marker_line_color='rgb(77, 154, 202)', # line markers between states
+        colorbar_title="Confirmed",
+    ))
+
+    fig.update_layout(height=300,geo=dict(scope='usa',showlakes=True,lakecolor='#ffffff'),margin={"r":0,"t":0,"l":0,"b":0})
+    
+    return fig
 
 @app.callback(Output("histogram", "figure"),[Input('graph-interval','n_intervals'),Input("location-dropdown","value")])
 def update_histogram(n,selectedLocation):
-    df_confirmed = pd.read_csv('https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv')
-    df_deaths = pd.read_csv('https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv')
-    df_recovered = pd.read_csv('https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_recovered_global.csv')
 
+    if not selectedLocation:
+        timeline_df = usa_timeline_df.groupby(['confirmed_date'],as_index=False)['confirmed_count','recovered_count','death_count'].sum()
     if selectedLocation:
-        # split_location = selectedLocation.split(",")
-        # country = split_location[-1].strip()
-        # print(country)
-        country = selectedLocation
-        if selectedLocation in country_mapping.values():
-            country = list(country_mapping.keys())[list(country_mapping.values()).index(selectedLocation)]
-        df_confirmed = df_confirmed[df_confirmed['Country/Region'] == country]
-        df_deaths = df_deaths[df_deaths['Country/Region'] == country]
-        df_recovered = df_recovered[df_recovered['Country/Region'] == country]
-
-    list_confirmed_columns = list(df_confirmed.columns)
-    list_deaths_columns = list(df_deaths.columns)
-    list_recovered_columns = list(df_recovered.columns)
-
-    index = 4
-    confirmed_time_line = {}
-    deaths_time_line = {}
-    recovered_time_line = {}
-    xticks_list = list_confirmed_columns[index:]
-    xticks_list = [xticks_list[0],xticks_list[int(len(xticks_list)/2)],xticks_list[-1]]
-
-    for col in list_confirmed_columns[index:]:
-        confirmed_time_line[col] = df_confirmed[col].sum()
-        deaths_time_line[col] = df_deaths[col].sum()
-        recovered_time_line[col] = df_recovered[col].sum()
+        timeline_df = usa_timeline_df[usa_timeline_df['state_name']==selectedLocation]
 
     Layout = go.Layout(
             legend = dict(x=0,y=1),
             margin=go.layout.Margin(l=2, r=5, t=2, b=2),
             showlegend=True,
-            plot_bgcolor="#1E1E1E",
-            paper_bgcolor="#1E1E1E",
+            plot_bgcolor="#ffffff",
+            # paper_bgcolor="#FFFFFF",
             dragmode="select",
-            font=dict(color="white"),
-            xaxis = dict(showgrid=False,nticks=2),
-            yaxis = dict(showline=True,showgrid=False,nticks=5))
+            font=dict(color="#1e1e1e"),
+            xaxis = dict(showline=True,linecolor='#1e1e1e',showgrid=True,gridcolor='lightgrey'),
+            yaxis = dict(showline=True,linecolor='#1e1e1e',showgrid=True,gridcolor='lightgrey'))
     fig = go.Figure(
         data=[
-            go.Scatter(x=list(confirmed_time_line.keys()), y=list(confirmed_time_line.values()),mode='lines+markers',name='Confirmed',marker=dict(color='#f5b041')),
-            go.Scatter(x=list(deaths_time_line.keys()),y=list(deaths_time_line.values()),mode='lines+markers',name='Deaths',marker=dict(color='#cb4335')),
-            go.Scatter(x=list(recovered_time_line.keys()),y=list(recovered_time_line.values()),mode='lines+markers',name='Recovered',marker=dict(color='#58d68d'))
+            go.Scatter(x=list(timeline_df['confirmed_date']), y=list(timeline_df['confirmed_count']),mode='lines+markers',name='Confirmed',marker=dict(color='rgb(7, 139, 189)')),
+            go.Scatter(x=list(timeline_df['confirmed_date']),y=list(timeline_df['death_count']),mode='lines+markers',name='Deaths',marker=dict(color='#cb4335')),
+            go.Scatter(x=list(timeline_df['confirmed_date']),y=list(timeline_df['recovered_count']),mode='lines+markers',name='Recovered',marker=dict(color='rgb(4, 119, 53)'))
         ],
         layout = Layout,
         )
-    fig.update_xaxes(tickvals=xticks_list)
+    fig.update_xaxes()
     return fig
-
-#add
 @app.callback(
     [Output(f"collapse-{i}", "is_open") for i in range(1, 4)],
     [Input(f"group-{i}-toggle", "n_clicks") for i in range(1, 4)],
@@ -504,21 +414,50 @@ def generateTestID(filename):
 
 #callback for run x-ray classifier
 @app.callback(Output('result-1','children'),[Input('run-1','n_clicks'),Input('email-1','value'),Input('upload-1','contents'),Input('upload-1','filename')])
-def run_X_Ray_Classifier(n_clicks,email,contents,filename):
-    # print('in meth')
-    # if n_clicks:
-    #     unique_id = generateTestID('x-ray-testing')
-    #     if contents is not None:
-    #         string = contents.split(';base64,')[-1]
-    #         decoded = base64.b64decode(string)
-    #         buffer = _BytesIO(decoded)
-    #         im = Image.open(buffer)
-    #         iml = im.save(str(unique_id)+'.png')
-        
+def run_x_ray_classifier(n_clicks,email,contents,filename):
+    if n_clicks:
+        testID = generateTestID('x-ray-testing')
+        filename = "x-ray-"+str(testID)+".jpg"
+        if contents is not None and email is not None:
+            bytecontent = contents.split(';base64,')[-1]
+            decoded = base64.b64decode(bytecontent)
+            try:
+                blob = bucket.blob(filename)
+                blob.upload_from_string(decoded,'image/jpeg')
+            except Exception as e:
+                return html.Div([
+                    'There was an error processing this file.'+str(e)
+                ])
+            print("Starting x-ray classifcation..")
+            blob = bucket.blob(filename)
+            blobcotent = blob.download_as_string()
+            img = np.asarray(bytearray(blobcotent))
+            xrayc = xrayClassification()
+            fig_to_upload,testResult = xrayc.classifier(img)
+            buf = io.BytesIO()
+            fig_to_upload.savefig(buf, format='jpg')
+            buf.seek(0)
+            image_as_a_string = base64.b64encode(buf.read())
+            decoded = base64.b64decode(image_as_a_string)
+            reportfilename = "x-ray-"+str(testID)+"-report.jpg"
+            blob = bucket.blob(reportfilename)
+            blob.upload_from_string(decoded,content_type='image/jpg')
 
-    #         return html.Div('Testing Completed.Please check you mail for details.',style={'color':'light-blue'})
-    # else:
-    return html.Div('This functionality is under construction. Will be updated periodically.',style={'font-family':'cambria','font-size':'10px','padding-left':'5px'})
+            #send mail function
+            sendMail('COVID-19 XRAY Classification Test Report',testID,testResult,filename,reportfilename,email)
+
+            #update csv file with testing entry
+            blob = bucket.blob('x-ray-testing.csv')
+            blobcontent = blob.download_as_string()
+            blobdecoded = blobcontent.decode()
+            string = str(testID)+","+filename+","+reportfilename+","+testResult+","+email
+            blobdecoded+="\n"+string
+            blob.upload_from_string(blobdecoded)
+            return html.Span('Run Completed. Check your mail.',style={'color':'light-blue','font-size':'10px','text-align':'center'})
+        else:
+            return html.Span('Upload file/email is empty. Please check',style={'color':'light-blue','font-size':'10px','text-align':'center'})
+    else: 
+        return html.Div(' ')
 
 @app.callback(Output('result-2','children'),[Input('run-2','n_clicks'),Input('email-2','value'),Input('upload-2','contents'),Input('upload-2','filename')])
 def run_ct_scan_classifier(n_clicks,email,contents,filename):
@@ -556,12 +495,13 @@ def run_psi_curb65_score(n_clicks,email,contents,filename):
             report_df = fr.generateReport(df)
 
             #save the report csv to google cloud storage
-            blob = bucket.blob(str(testId)+"_report.csv")
+            reportfilename = str(testId)+"_report.csv"
+            blob = bucket.blob(reportfilename)
             blob.upload_from_string(report_df.to_csv(),'text/csv')
 
             #send mail attaching the report file
             # sendMail(inputFileName,testId,report_filename,email)
-            sendMail(testId,email)
+            sendMail('PSI/CURB-65 Score Report',testId,'',fileName,reportfilename,email)
 
             #save the entry to csv file
             blob = bucket.blob('psi_and_curb_65_score.csv')
@@ -571,45 +511,45 @@ def run_psi_curb65_score(n_clicks,email,contents,filename):
             blobdecoded+="\n"+string
             blob.upload_from_string(blobdecoded)
 
-            return html.Span('Run Completed. Check your mail.',style={'color':'light-blue','font-size':'12px','text-align':'center'})
+            return html.Span('Run Completed. Check your mail.',style={'color':'light-blue','font-size':'10px','text-align':'center'})
         
         else:
             return html.Span('Upload file/email is empty. Please check',style={'color':'light-blue','font-size':'10px','text-align':'center'})
     else:
-        return html.Span('')
+        return html.Span([''])
              
-def sendMail(testId,email):
+def sendMail(subject,testId,testResult,inputfilename,reportfilename,email):
+    fileext = inputfilename.split('.')[-1]
     # print(report_filename)
     fromaddr = "mstcphs@gmail.com"
     toaddr = email
     msg = MIMEMultipart() 
     msg['From'] = fromaddr 
     msg['To'] = toaddr 
-    msg['Subject'] = "PSI_and_CURB-65_Report Test Id: " +str(testId)
-    body = "Test ID: "+str(testId)+"\n"+"Please find PSI/CURB-65 Score report attached. We have included your input file as well for your reference."+"\n\n"
+    msg['Subject'] = subject+" Test ID: " +str(testId)
+    body = "Test ID: "+str(testId)+"\n"+"Please find "+subject+" attached. We have included your input file as well for your reference."+"\n\n"
+    if(subject == 'COVID-19 XRAY Classification Test Report'):
+        body += "Test Result: " +testResult + "\n"
     body += "Please report to \'mstcphs@gmail.com\' in case of any questions or issues."
     
 
-    blob = bucket.blob(str(testId)+"_report.csv")
-    report_content = blob.download_as_string().decode()
-    
-    body += "\n"+report_content
+    blob = bucket.blob(inputfilename)
+    input_content = bytearray(blob.download_as_string())
+    blob = bucket.blob(reportfilename)
+    report_content = bytearray(blob.download_as_string())
 
     msg.attach(MIMEText(body, 'plain')) 
 
-    # attachment1 = open(str(testId)+"_report.csv", "rb") 
-    # p1 = MIMEBase('application', 'octet-stream') 
-    # p1.set_payload((attachment1).read()) 
-    # encoders.encode_base64(p1) 
-    # p1.add_header('Content-Disposition', "attachment; filename= %s" % 'report') 
-    # msg.attach(p1) 
-
-    # attachment = open(fileName, "rb") 
-    # p = MIMEBase('application', 'octet-stream') 
-    # p.set_payload((attachment).read()) 
-    # encoders.encode_base64(p) 
-    # p.add_header('Content-Disposition', "attachment; filename= %s" % 'input') 
-    # msg.attach(p) 
+    p = MIMEBase('application','octet-stream')
+    p.set_payload(input_content)
+    encoders.encode_base64(p)
+    p.add_header('Content-Disposition', "attachment", filename= 'input.'+fileext)
+    msg.attach(p)
+    p = MIMEBase('application','octet-stream')
+    p.set_payload(report_content)
+    encoders.encode_base64(p)
+    p.add_header('Content-Disposition', "attachment", filename= 'report.'+fileext)
+    msg.attach(p)
 
     s = smtplib.SMTP('smtp.gmail.com', 587) 
     s.starttls() 
@@ -617,6 +557,7 @@ def sendMail(testId,email):
     text = msg.as_string() 
     s.sendmail(fromaddr, toaddr, text) 
     s.quit() 
+
 
 if __name__ =='__main__':
     app.run_server(host='0.0.0.0',port=8080,debug=True)
