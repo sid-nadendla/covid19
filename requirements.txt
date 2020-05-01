@@ -59,7 +59,6 @@ keras-vis==0.4.1
 keyring==10.6.0
 keyrings.alt==3.0
 kiwisolver==1.2.0
-language-selector==0.1
 Markdown==3.2.1
 MarkupSafe==1.1.1
 matplotlib==3.2.1
