@@ -69,7 +69,6 @@ numpy==1.18.2
 oauthlib==3.1.0
 opencv-python==4.2.0.34
 osqp==0.6.1
-PAM==0.4.2
 pandas==1.0.3
 Pillow==7.1.1
 plotly==4.6.0
