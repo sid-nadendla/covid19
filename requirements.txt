@@ -62,3 +62,4 @@ wrapt==1.12.1
 xlrd==1.2.0
 gunicorn==19.9.0
 google-cloud-storage==1.26.0
+gcsfs==0.6.1

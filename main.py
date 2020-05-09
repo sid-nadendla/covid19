@@ -80,8 +80,8 @@ testing_methodologies = ['X-Ray Classification','CT-Scan Classification','PSI/CU
 
 def initialize():
     global state_wise_cumulative_df,usa_timeline_df,list_of_states     
-    # filename = "gs://covid19mstcphs/cases.csv"
-    filename = "https://storage.cloud.google.com/covid19mstcphs/cases.csv"
+    filename = "gs://covid19mstcphs/cases.csv"
+    # filename = "https://storage.cloud.google.com/covid19mstcphs/cases.csv"
     df = pd.read_csv(filename)
     flag = False
     state_wise_cumulative_df = df.groupby(['state_name'],as_index=False)['recovered_count','confirmed_count','death_count'].sum()
