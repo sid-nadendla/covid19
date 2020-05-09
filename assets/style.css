@@ -4,10 +4,11 @@
 
 /* Main Layout ––––––––––––––––––––––––––––––––––––––––––––––––––*/
 body {
-  background-color: #1e1e1e;
-  color: #d8d8d8;
+  /* background-color: #1e1e1e; */
+  color: #1E1E1E;
   margin: 0;
   padding: 0;
+  text-align:center;
 }
 h1, h2, h3, h4, h5 {
   font-family: "Open Sans";
@@ -66,8 +67,8 @@ a {
   margin-left: 8px;
 }
 .Select-control, .Select-menu-outer, .Select-multi-value-wrapper, .select-up, .is-open .Select-control {
-  background-color: #1E1E1E;
-  color: white;
+  /* background-color: #1E1E1E; */
+  color: #1E1E1E;
   
 }
 
