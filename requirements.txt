@@ -16,7 +16,7 @@ dash-html-components==1.0.2
 dash-renderer==1.2.4
 dash-table==4.6.1
 Deprecated==1.2.7
-Django==3.0.4
+Django==3.0.7
 dnspython==1.16.0
 email-validator==1.0.5
 Flask==1.1.1
